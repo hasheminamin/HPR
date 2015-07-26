@@ -270,6 +270,117 @@ public class SemanticReasoner
 
 		return Answers;
 	}
+
+	/**
+	 * Standard entry point for the reasoning engine which starts reasoning from rules. 
+	 * gets a plausible question and launches RECALLRule.
+	 * 
+	 * @param pq the plausible question
+	 * @return the plausible answers (if any)
+	 */
+	public ArrayList<PlausibleAnswer> answerQuestionByRule(PlausibleQuestion pq)
+	{			
+		_reasoningDepth = 0;
+		totalCalls = 0;
+		totalBackTracks = 0;
+		reasoningTime = 0;
+		_conditionText = "";
+		_cacheDisambiguations.clear();
+		_cacheStatements.clear();
+		
+		//String filename = "log/hpr/" + pq.toString().replaceAll("[/\\\n\r\t\0\f`\\?\\*<>\\|\":]", "_");
+		String filename = "log/hpr/result-" + (new Long(System.currentTimeMillis())) + ".log";
+		
+		if (_logReasoningLinesToFile)
+		{
+			try
+			{
+				_internalReasoningLinesLogFile = new BufferedWriter(new FileWriter(filename));
+			}
+			catch(Exception e)
+			{
+				_logReasoningLinesToFile = false;
+			}			
+		}
+		
+		if (!isValidPlausibleQuestion(pq))
+		{
+			ArrayList<PlausibleAnswer> outs = new ArrayList<PlausibleAnswer>();
+			outs.add(new PlausibleAnswer(new Node("اجزاء پرسش به پایگاه دانش نگاشت نشد لذا فرآیند استدلال اجرا نشد.")));
+			
+			return outs;
+		}
+
+		_pathHistory = new History();
+		
+		Long startTime = System.currentTimeMillis();
+
+		if (pq.IsMultiArgument)
+		{
+			return MultiArgumentInference(pq);
+		}
+		else if (pq.descriptor == KnowledgeBase.HPR_KNOWLEDGE_DUMP && pq.argument != null)
+		{
+			return createArtificialAnswer(_kb.getConceptDump(pq.argument.getName(), 10), true);
+		}
+
+		// reasoning -----------------------------------
+		
+		ArrayList<PlausibleAnswer> Answers = recallRule(pq);
+		
+		//----------------------------------------------
+		
+		reasoningTime = System.currentTimeMillis() - startTime;
+		
+		if (!Common.isEmpty(Answers))
+		{
+			logToFile(pq.question);
+			logToFile(pq.toString());
+			
+			for (PlausibleAnswer Answer: Answers)
+			{
+				logToFile(Answer.toString() + " " + Answer.parameters.toString());
+				
+				// Adjusting NEGATIVE Yes-No Answers
+				if (Answer.isNegative)
+				{
+					if (Answer.answer == KnowledgeBase.HPR_YES)
+					{
+						Answer.answer = KnowledgeBase.HPR_NO;
+						Answer.isNegative = false;
+					}
+					else if (Answer.answer == KnowledgeBase.HPR_NO)
+					{
+						Answer.answer = KnowledgeBase.HPR_YES;
+						Answer.isNegative = false;					
+					}
+				}
+			}
+			
+			logToFile("");
+		}
+		
+		if (_logReasoningLinesToFile)
+		{
+			try
+			{
+				_internalReasoningLinesLogFile.close();
+			}
+			catch(Exception e)
+			{
+				_logReasoningLinesToFile = false;
+			}
+		}
+		
+		if (Answers == null)
+		{
+			Answers = new ArrayList<PlausibleAnswer>();
+		}
+
+		return Answers;
+	}
+	
+
 	
 	/**
 	 * the RECALL function which is the internal entry point to the reasoning engine.		
@@ -545,6 +656,280 @@ public class SemanticReasoner
 			
 			Do(Ambiguation(pq), answers);
 			Do(Disambiguation(pq), answers);			
+		}
+
+		answers = combineEvidences(answers, Function, pq);
+				
+		InferenceEpilogue(pq, Function);
+		
+		log(composeReasoningLine("RETURN", Function));
+
+		return answers;
+	}
+	
+	/**
+	 * another version of RECALL which accepts a node as input and recalls related rule from KnowledgeBase. 
+	 * @param pq plausible question
+	 * @return a list if found answers
+	 */
+	private ArrayList<PlausibleAnswer> recallRule(PlausibleQuestion pq)
+	{		
+		String Function = "RECALLRule";
+
+		Node descriptor = pq.descriptor;
+		Node argument = pq.argument;
+		Node referent = pq.referent;
+		
+		if (!InferencePrologue(pq, Function))
+		{
+			return null;
+		}
+		
+		PlausibleAnswer answer = null;
+		String statement = null;
+		String reference = null;
+		ArrayList<PlausibleAnswer> answers = new ArrayList<PlausibleAnswer>();
+
+		ArrayList<PlausibleAnswer> Arguments;
+		ArrayList<PlausibleAnswer> referents;
+	
+		// First we'll try to find the answer in the _kb directly (i.e. no reasoning) ...
+		
+		if (referent == null) //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		{
+			// QUESTION TYPE ONE: Des(Arg)={?}
+
+			referents = argument.findTargetNodes(descriptor);
+
+			for (PlausibleAnswer pa: referents)
+			{
+				answer = pa;
+
+//				if (answer.answer == unwantedAnswer)
+//				{
+//					continue;
+//				}
+
+				statement = composeStatement(pq, answer);				
+				reference = composeReference(answer.statement);
+
+				_pathHistory.pushReasoningLine(statement, answer.parameters.toString(), reference);
+				answer.AddJustification(_pathHistory.getReasoningLines());
+				_pathHistory.popReasoningLine(1);
+				
+				log("*" + composeReasoningLine(statement + "\t" + answer.parameters, Function));
+
+				answers.add(answer);
+			}
+		}
+		else if (argument == null) //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		{
+			// QUESTION TYPE 2: Des(?)={Ref}
+
+			Arguments = referent.findSourceNodes(descriptor);
+
+			for (PlausibleAnswer pa: Arguments)
+			{
+				answer = pa;
+
+//				if (answer.answer == unwantedAnswer)
+//				{
+//					continue;
+//				}
+				
+				statement = composeStatement(pq, answer);				
+				reference = composeReference(answer.statement);
+				
+				_pathHistory.pushReasoningLine(statement, answer.parameters.toString(), reference);
+				answer.AddJustification(_pathHistory.getReasoningLines());
+				_pathHistory.popReasoningLine(1);
+				
+				log("*" + composeReasoningLine(statement + "\t" + answer.parameters, Function));
+
+				answers.add(answer);
+			}
+		}
+		else if (pq.cxTime != KnowledgeBase.HPR_ANY || pq.cxLocation != KnowledgeBase.HPR_ANY) //~~~~~~~~~~~~~
+		{
+			// QUESTION TYPE 4: asking for CXTIME or CXLOCATION
+			//
+			//  				4a) Des(Arg)={Anything}:
+			//											- 4a1) CX:Time = {?} 
+			//											- 4a2) CX:Location = {?}
+			//											- 4a3) CX:TIME = {time}?
+			//											- 4a4) CX:Location = {location}?
+			//					4b) Des(Anything)={Ref}:
+			//											- 4b1) CX:Time = {?} 
+			//											- 4b2) CX:Location = {?}
+			//											- 4b3) CX:Time = {time}?
+			//											- 4b4) CX:Location = {location}?
+			//					4c) Des(Arg)={Ref}:
+			//											- 4c1) CX:Time = {?} 
+			//											- 4c2) CX:Location = {?}
+			//											- 4c3) CX:TIME = {time}?
+			//											- 4c4) CX:Location = {location}?
+						
+			answers = RecallCXs(pq, Function);
+//			answers = RecallCXs2(pq, Function);
+		}
+		else //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		{
+			// QUESTION TYPE 3: Des(Arg)={Ref}?
+
+			// Please note that there is no difference in calling FindTargetNodes or FindSourceNodes
+			// because we deal with the _kb directly here. If we wanted to do inference then it would matter.
+			referents = argument.findTargetNodes(descriptor);
+			
+			// TODO: do the same for arguments:
+			//Arguments = referent.FindSourceNodes(DESCRIPTOR);
+			
+			for (PlausibleAnswer pa: referents)
+			{
+				answer = pa;
+
+				// It if meaningless to say: if (answer == BadAnswerNode) then ...
+				// because answers here are Yes or nothing.
+
+				if (answer.answer == referent)
+				{
+					PlausibleAnswer Yes = new PlausibleAnswer();
+
+					statement = composeStatement(pq, answer);					
+					reference = composeReference(answer.statement);
+					
+					_pathHistory.pushReasoningLine(statement, answer.parameters.toString(), reference);
+					
+					Yes.answer = KnowledgeBase.HPR_YES;
+					Yes.copyParameters(answer.parameters);
+					Yes.AddJustification(_pathHistory.getReasoningLines());
+					
+					_pathHistory.popReasoningLine(1);
+					log("*" + composeReasoningLine(statement + "\t" + Yes.parameters, Function));
+
+					answers.add(Yes);
+				}
+			}
+		}
+		
+		
+		if (_reasoningDepth >= _maxReasoningDepth)
+		{
+			// It's exceeded the Max. Reasoning Depth
+			
+			totalBackTracks++;
+			
+			log(composeReasoningLine("BACKTRACK (useless inference call)", Function));
+			
+			InferenceEpilogue(pq, Function);
+			
+			return answers;
+		}
+		
+		if (answers.size() >= _maxAnswersNumber)
+		{
+			// we found enough answers! no need to continue.
+			
+			log(composeReasoningLine("BACKTRACK (found enough answers)", Function));
+			
+			InferenceEpilogue(pq, Function);
+			
+			return answers;
+		}	
+				
+		
+		// We couldn't find the answer directly. Now we have to reason to find it:
+
+		if (referent == null)
+		{
+			PlausibleQuestion NewPQ = pq.clone();
+			NewPQ.referent = null;
+
+//			//Do(AGEN(NewPQ), Answers);
+//			Do(ASPEC(NewPQ), answers);
+//			Do(ASIM(NewPQ), answers);
+//			Do(ADIS(NewPQ), answers);
+//			Do(ASYN(NewPQ), answers);
+//			
+//			Do(DGEN(NewPQ), answers);
+//			Do(DSPEC(NewPQ), answers);
+//			Do(DSIM(NewPQ), answers);
+//			Do(DDIS(NewPQ), answers);
+//			Do(DSYN(NewPQ), answers);
+//			
+//			Do(DDEP(NewPQ), answers);
+			Do(DIMP(NewPQ), answers);
+//			Do(DEPA(NewPQ), answers);
+//			
+//			//Do(Abduction(NewPQ), Answers);
+//			//Do(RCausality(NewPQ), Answers);
+//			//Do(Attribute(NewPQ), Answers);
+//			Do(DescriptorInverseTransform(NewPQ), answers);
+//
+//			Do(Ambiguation(NewPQ), answers);
+//			Do(Disambiguation(NewPQ), answers);
+		}
+		else if (argument == null)
+		{
+			PlausibleQuestion NewPQ = pq.clone();
+			NewPQ.argument = null;
+			
+//			//Do(RGEN(NewPQ), Answers);
+//			Do(RSPEC(NewPQ), answers);
+//			Do(RSIM(NewPQ), answers);
+//			Do(RDIS(NewPQ), answers);
+//			Do(RSYN(NewPQ), answers);
+//			
+//			Do(DGEN(NewPQ), answers);
+//			Do(DSPEC(NewPQ), answers);
+//			Do(DSIM(NewPQ), answers);
+//			Do(DDIS(NewPQ), answers);
+//			Do(DSYN(NewPQ), answers);
+//			
+//			Do(DDEP(NewPQ), answers);
+			Do(DIMP(NewPQ), answers);
+//			
+//			//Do(Abduction(NewPQ), Answers);
+//			//Do(ACausality(NewPQ), Answers);
+//			//Do(Attribute(NewPQ), Answers);
+//			Do(DescriptorInverseTransform(NewPQ), answers);
+//			
+//			Do(Ambiguation(NewPQ), answers);
+//			Do(Disambiguation(NewPQ), answers);
+		}
+		else
+		{
+//			//TODO: AGEN and DGEN were disabled!!!
+//			//Do(AGEN(pq), Answers);
+//			//Do(RGEN(pq), Answers);
+//			Do(DGEN(pq), answers);
+//
+//			Do(ASPEC(pq), answers);
+//			Do(RSPEC(pq), answers);
+//			Do(DSPEC(pq), answers);
+//
+//			Do(ASIM(pq), answers);
+//			Do(RSIM(pq), answers);
+//			Do(DSIM(pq), answers);
+//
+//			Do(ADIS(pq), answers);
+//			Do(RDIS(pq), answers);
+//			Do(DDIS(pq), answers);
+//			
+//			Do(ASYN(pq), answers);
+//			Do(DSYN(pq), answers);
+//			Do(RSYN(pq), answers);
+//			
+//			Do(DDEP(pq), answers);
+			Do(DIMP(pq), answers);
+//			Do(DEPA(pq), answers);
+//
+//			//Do(Abduction(pq), Answers);
+//			//Do(RCausality(pq), Answers);
+//			//Do(Attribute(pq), Answers);
+//			Do(DescriptorInverseTransform(pq), answers);
+//			
+//			Do(Ambiguation(pq), answers);
+//			Do(Disambiguation(pq), answers);			
 		}
 
 		answers = combineEvidences(answers, Function, pq);
