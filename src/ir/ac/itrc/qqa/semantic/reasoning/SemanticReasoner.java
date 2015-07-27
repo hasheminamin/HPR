@@ -14,6 +14,8 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Hashtable;
 
+import javax.print.attribute.standard.PDLOverrideSupported;
+
 /**
  * 
  * This class constitutes the core of the HPR Reasoning Engine.
@@ -381,7 +383,6 @@ public class SemanticReasoner
 	}
 	
 
-	
 	/**
 	 * the RECALL function which is the internal entry point to the reasoning engine.		
 	 * @param pq input plausible question
@@ -518,6 +519,8 @@ public class SemanticReasoner
 
 				if (answer.answer == referent)
 				{
+					System.out.println("\n\nquery: " + pq);
+					System.out.println("&&&&&&&&&&&&&&&&&&& " + _reasoningDepth + " &&&&&&&&&&&&&&&&&&&\n\n");
 					PlausibleAnswer Yes = new PlausibleAnswer();
 
 					statement = composeStatement(pq, answer);					
@@ -537,6 +540,10 @@ public class SemanticReasoner
 			}
 		}
 		
+//		boolean mustFinish = mustFinish(Function, pq, answers);
+//		
+//		if(mustFinish)
+//			return answers;
 		
 		if (_reasoningDepth >= _maxReasoningDepth)
 		{
@@ -564,7 +571,7 @@ public class SemanticReasoner
 				
 		
 		// We couldn't find the answer directly. Now we have to reason to find it:
-
+		
 		if (referent == null)
 		{
 			PlausibleQuestion NewPQ = pq.clone();
@@ -572,55 +579,113 @@ public class SemanticReasoner
 
 			//Do(AGEN(NewPQ), Answers);
 			Do(ASPEC(NewPQ), answers);
-			Do(ASIM(NewPQ), answers);
-			Do(ADIS(NewPQ), answers);
-			Do(ASYN(NewPQ), answers);
-			
-			Do(DGEN(NewPQ), answers);
-			Do(DSPEC(NewPQ), answers);
-			Do(DSIM(NewPQ), answers);
-			Do(DDIS(NewPQ), answers);
-			Do(DSYN(NewPQ), answers);
-			
-			Do(DDEP(NewPQ), answers);
-			Do(DIMP(NewPQ), answers);
-			Do(DEPA(NewPQ), answers);
-			
-			//Do(Abduction(NewPQ), Answers);
-			//Do(RCausality(NewPQ), Answers);
-			//Do(Attribute(NewPQ), Answers);
-			Do(DescriptorInverseTransform(NewPQ), answers);
-
-			Do(Ambiguation(NewPQ), answers);
-			Do(Disambiguation(NewPQ), answers);
+			if(!mustFinish(Function, NewPQ, answers)){
+				Do(ASIM(NewPQ), answers);
+				if(!mustFinish(Function, NewPQ, answers)){
+					Do(ADIS(NewPQ), answers);
+					if(!mustFinish(Function, NewPQ, answers)){
+						Do(ASYN(NewPQ), answers);
+					
+						if(!mustFinish(Function, NewPQ, answers)){
+							Do(DGEN(NewPQ), answers);
+							if(!mustFinish(Function, NewPQ, answers)){
+								Do(DSPEC(NewPQ), answers);
+								if(!mustFinish(Function, NewPQ, answers)){
+									Do(DSIM(NewPQ), answers);
+									if(!mustFinish(Function, NewPQ, answers)){
+										Do(DDIS(NewPQ), answers);
+										if(!mustFinish(Function, NewPQ, answers)){
+											Do(DSYN(NewPQ), answers);
+										
+											if(!mustFinish(Function, NewPQ, answers)){
+												Do(DDEP(NewPQ), answers);
+												if(!mustFinish(Function, NewPQ, answers)){
+													Do(DIMP(NewPQ), answers);
+													if(!mustFinish(Function, NewPQ, answers)){
+														Do(DEPA(NewPQ), answers);
+													
+														//Do(Abduction(NewPQ), Answers);
+														//Do(RCausality(NewPQ), Answers);
+														//Do(Attribute(NewPQ), Answers);
+														if(!mustFinish(Function, NewPQ, answers)){
+															Do(DescriptorInverseTransform(NewPQ), answers);
+											
+															if(!mustFinish(Function, NewPQ, answers)){
+																Do(Ambiguation(NewPQ), answers);
+																if(!mustFinish(Function, NewPQ, answers)){
+																	Do(Disambiguation(NewPQ), answers);
+																}
+															}
+														}
+													}
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		
 		}
 		else if (argument == null)
 		{
+			
+			//TODO: correct { indent }
+			
 			PlausibleQuestion NewPQ = pq.clone();
 			NewPQ.argument = null;
 			
 			//Do(RGEN(NewPQ), Answers);
 			Do(RSPEC(NewPQ), answers);
-			Do(RSIM(NewPQ), answers);
-			Do(RDIS(NewPQ), answers);
-			Do(RSYN(NewPQ), answers);
-			
-			Do(DGEN(NewPQ), answers);
-			Do(DSPEC(NewPQ), answers);
-			Do(DSIM(NewPQ), answers);
-			Do(DDIS(NewPQ), answers);
-			Do(DSYN(NewPQ), answers);
-			
-			Do(DDEP(NewPQ), answers);
-			Do(DIMP(NewPQ), answers);
-			
-			//Do(Abduction(NewPQ), Answers);
-			//Do(ACausality(NewPQ), Answers);
-			//Do(Attribute(NewPQ), Answers);
-			Do(DescriptorInverseTransform(NewPQ), answers);
-			
-			Do(Ambiguation(NewPQ), answers);
-			Do(Disambiguation(NewPQ), answers);
+			if(!mustFinish(Function, NewPQ, answers)){
+				Do(RSIM(NewPQ), answers);
+				if(!mustFinish(Function, NewPQ, answers)){
+					Do(RDIS(NewPQ), answers);
+					if(!mustFinish(Function, NewPQ, answers)){
+						Do(RSYN(NewPQ), answers);
+					
+						if(!mustFinish(Function, NewPQ, answers)){
+							Do(DGEN(NewPQ), answers);
+							if(!mustFinish(Function, NewPQ, answers)){
+								Do(DSPEC(NewPQ), answers);
+								if(!mustFinish(Function, NewPQ, answers)){
+									Do(DSIM(NewPQ), answers);
+									if(!mustFinish(Function, NewPQ, answers)){
+										Do(DDIS(NewPQ), answers);
+										if(!mustFinish(Function, NewPQ, answers)){
+											Do(DSYN(NewPQ), answers);
+										
+											if(!mustFinish(Function, NewPQ, answers)){
+												Do(DDEP(NewPQ), answers);
+												if(!mustFinish(Function, NewPQ, answers)){
+													Do(DIMP(NewPQ), answers);
+												
+													//Do(Abduction(NewPQ), Answers);
+													//Do(ACausality(NewPQ), Answers);
+													//Do(Attribute(NewPQ), Answers);
+													if(!mustFinish(Function, NewPQ, answers)){
+														Do(DescriptorInverseTransform(NewPQ), answers);
+														
+														if(!mustFinish(Function, NewPQ, answers)){
+															Do(Ambiguation(NewPQ), answers);
+															if(!mustFinish(Function, NewPQ, answers)){
+																Do(Disambiguation(NewPQ), answers);
+															}
+														}
+													}
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}			
 		}
 		else
 		{
@@ -629,33 +694,69 @@ public class SemanticReasoner
 			//Do(RGEN(pq), Answers);
 			Do(DGEN(pq), answers);
 
-			Do(ASPEC(pq), answers);
-			Do(RSPEC(pq), answers);
-			Do(DSPEC(pq), answers);
-
-			Do(ASIM(pq), answers);
-			Do(RSIM(pq), answers);
-			Do(DSIM(pq), answers);
-
-			Do(ADIS(pq), answers);
-			Do(RDIS(pq), answers);
-			Do(DDIS(pq), answers);
-			
-			Do(ASYN(pq), answers);
-			Do(DSYN(pq), answers);
-			Do(RSYN(pq), answers);
-			
-			Do(DDEP(pq), answers);
-			Do(DIMP(pq), answers);
-			Do(DEPA(pq), answers);
-
-			//Do(Abduction(pq), Answers);
-			//Do(RCausality(pq), Answers);
-			//Do(Attribute(pq), Answers);
-			Do(DescriptorInverseTransform(pq), answers);
-			
-			Do(Ambiguation(pq), answers);
-			Do(Disambiguation(pq), answers);			
+			if(!mustFinish(Function, pq, answers)){
+				Do(ASPEC(pq), answers);
+				if(!mustFinish(Function, pq, answers)){
+					Do(RSPEC(pq), answers);
+					if(!mustFinish(Function, pq, answers)){
+						Do(DSPEC(pq), answers);
+		
+						if(!mustFinish(Function, pq, answers)){
+							Do(ASIM(pq), answers);
+							if(!mustFinish(Function, pq, answers)){
+								Do(RSIM(pq), answers);
+								if(!mustFinish(Function, pq, answers)){
+									Do(DSIM(pq), answers);
+					
+									if(!mustFinish(Function, pq, answers)){
+										Do(ADIS(pq), answers);
+										if(!mustFinish(Function, pq, answers)){
+											Do(RDIS(pq), answers);
+											if(!mustFinish(Function, pq, answers)){
+												Do(DDIS(pq), answers);
+											
+												if(!mustFinish(Function, pq, answers)){
+													Do(ASYN(pq), answers);
+													if(!mustFinish(Function, pq, answers)){
+														Do(DSYN(pq), answers);
+														if(!mustFinish(Function, pq, answers)){
+															Do(RSYN(pq), answers);
+														
+															if(!mustFinish(Function, pq, answers)){
+																Do(DDEP(pq), answers);
+																if(!mustFinish(Function, pq, answers)){
+																	Do(DIMP(pq), answers);
+																	if(!mustFinish(Function, pq, answers)){
+																		Do(DEPA(pq), answers);
+														
+																		//Do(Abduction(pq), Answers);
+																		//Do(RCausality(pq), Answers);
+																		//Do(Attribute(pq), Answers);
+																		if(!mustFinish(Function, pq, answers)){
+																			Do(DescriptorInverseTransform(pq), answers);
+																		
+																			if(!mustFinish(Function, pq, answers)){
+																				Do(Ambiguation(pq), answers);
+																				if(!mustFinish(Function, pq, answers)){
+																					Do(Disambiguation(pq), answers);
+																				}
+																			}
+																		}
+																	}
+																}
+															}
+														}
+													}
+												}
+											}
+										}
+									}									
+								}								
+							}
+						}
+					}
+				}							
+			}
 		}
 
 		answers = combineEvidences(answers, Function, pq);
@@ -666,6 +767,36 @@ public class SemanticReasoner
 
 		return answers;
 	}
+	
+	private boolean mustFinish(String Function, PlausibleQuestion pq, ArrayList<PlausibleAnswer> answers){
+				
+		if (_reasoningDepth >= _maxReasoningDepth)
+		{
+			// It's exceeded the Max. Reasoning Depth
+			
+			totalBackTracks++;
+			
+			log(composeReasoningLine("BACKTRACK (useless inference call)", Function));
+			
+//			InferenceEpilogue(pq, Function);
+			
+			return true;
+		}
+		
+		if (answers.size() >= _maxAnswersNumber)
+		{
+			// we found enough answers! no need to continue.
+			
+			log(composeReasoningLine("BACKTRACK (found enough answers)", Function));
+			
+//			InferenceEpilogue(pq, Function);
+			
+			return true;
+		}
+				
+		return false;
+	}
+	
 	
 	/**
 	 * another version of RECALL which accepts a node as input and recalls related rule from KnowledgeBase. 
@@ -811,7 +942,7 @@ public class SemanticReasoner
 			}
 		}
 		
-		
+				
 		if (_reasoningDepth >= _maxReasoningDepth)
 		{
 			// It's exceeded the Max. Reasoning Depth
@@ -940,7 +1071,7 @@ public class SemanticReasoner
 
 		return answers;
 	}
-	
+		
 	/**
 	 * a variation of RECALL specialized in finding contextual answers (i.e. Time and Location) answers 
 	 * @param pq input plausible question
